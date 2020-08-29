@@ -69,7 +69,7 @@ PMGOLD %>%
   bind_rows(AUD_USD %>%
     mutate(cum_return = AUD_USD) %>%
     select(date, cum_return) %>%
-    mutate(signal = "AUD_USD")) %>%
+    mutate(signal = "AUD/USD")) %>%
   filter(!is.na(cum_return)) %>%
   ggplot(aes(x = date, y = cum_return, colour = signal)) +
   geom_line() +
@@ -77,7 +77,9 @@ PMGOLD %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
   theme(axis.text.x=element_text(angle=60, hjust=1),
         legend.title=element_blank()) +
-  labs(y = "", x = "")
+  labs(y = "", x = "",
+       title = "AUD/USD vs gold hedged to AUD (QAU.AX) and non-hedged (PMGOLD.AX)") 
+ggsave("gold1.png")
 
 
 PMGOLD %>%
@@ -89,7 +91,7 @@ PMGOLD %>%
   bind_rows(AUD_USD %>%
     mutate(cum_return = AUD_USD) %>%
     select(date, cum_return) %>%
-    mutate(signal = "AUD_USD")) %>%
+    mutate(signal = "AUD/USD")) %>%
   filter(date < "2020-03-22") %>%
   filter(!is.na(cum_return)) %>%
   ggplot(aes(x = date, y = cum_return, colour = signal)) +
@@ -98,7 +100,9 @@ PMGOLD %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
   theme(axis.text.x=element_text(angle=60, hjust=1),
         legend.title=element_blank()) +
-  labs(y = "", x = "")
+  labs(y = "", x = "", 
+       title = "PMGOLD outperformed while AUD fell against USD until March")
+ggsave("gold2.png")
 
 
 PMGOLD %>%
@@ -113,7 +117,7 @@ PMGOLD %>%
     mutate(cum_return = AUD_USD) %>%
     filter(date >= "2020-03-23") %>%
     select(date, cum_return) %>%
-    mutate(signal = "AUD_USD")) %>%
+    mutate(signal = "AUD/USD")) %>%
   filter(!is.na(cum_return)) %>%
   ggplot(aes(x = date, y = cum_return, colour = signal)) +
   geom_line() +
@@ -121,8 +125,9 @@ PMGOLD %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
   theme(axis.text.x=element_text(angle=60, hjust=1),
         legend.title=element_blank()) +
-  labs(y = "", x = "")
-
+  labs(y = "", x = "",
+       title = "QAU outperformed while AUD strengthened against USD post-March")
+ggsave("gold3.png")
 
 PMGOLD %>%
   bind_rows(QAU) %>%
@@ -136,7 +141,6 @@ PMGOLD %>%
 PMGOLD %>%
   bind_rows(QAU) %>%
   bind_rows(half_half) %>%
-  #filter(signal != "GOLD.AX") %>%
   arrange(date) %>%
   group_by(signal) %>%
   mutate(cum_return = cumprod(1 + simple_return) - 1) %>%
@@ -144,7 +148,7 @@ PMGOLD %>%
   bind_rows(AUD_USD %>%
     mutate(cum_return = AUD_USD) %>%
     select(date, cum_return) %>%
-    mutate(signal = "AUD_USD")) %>%
+    mutate(signal = "AUD/USD")) %>%
   filter(!is.na(cum_return)) %>%
   ggplot(aes(x = date, y = cum_return, colour = signal)) +
   geom_line() +
@@ -152,6 +156,8 @@ PMGOLD %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
   theme(axis.text.x=element_text(angle=60, hjust=1),
         legend.title=element_blank()) +
-  labs(y = "", x = "")
+  labs(y = "", x = "",
+       title = "Holding half hedged/non-hedged gold via 50/50 QAU/PMGOLD split\n gives gold exposure that's impartial to AUD/USD fluctuations")
+ggsave("gold4.png")
   
 ```
