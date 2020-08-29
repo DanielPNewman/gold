@@ -1,0 +1,157 @@
+---
+title: "gold-aud-usd"
+output: html_notebook
+---
+
+## load packages and get data
+```{r}
+# Load packages
+library(tidyverse)
+library(readxl)
+library(httr)
+library(tidyquant)
+library(lubridate)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# disable scientific notation
+options(scipen=999)
+
+# start date
+start_date <- "2020-01-02"
+
+# Get PMGOLD.AX
+read_csv("raw_data/Trade_history_PMGOLD_29Aug2020.csv") %>%
+  mutate(date = lubridate::dmy(Date)) %>%
+  filter(date >= start_date) %>%
+  mutate(simple_return = `Change %`/100) %>%
+  mutate(signal = "PMGOLD.AX") %>%
+  arrange(date) %>%
+  filter(!is.na(simple_return)) %>%
+  select(date, simple_return, signal) -> PMGOLD
+
+# get QAU.AX
+tq_get(c("QAU.AX"))  %>%
+  select(symbol, date, adjusted) %>%
+    filter(date >= start_date) %>%
+  filter(!is.na(adjusted)) %>%
+  arrange(date) %>%
+  group_by(symbol) %>%
+  mutate(simple_return = (adjusted/lag(adjusted) - 1)) %>%
+  mutate(simple_return = ifelse(is.na(simple_return), 0 , simple_return)) %>%
+  mutate(signal = symbol) %>%
+  ungroup() %>%
+  select(date, simple_return, signal) -> QAU
+
+### Get AUD_USD fx data from https://www.rba.gov.au/statistics/historical-data.html
+GET('https://www.rba.gov.au/statistics/tables/xls-hist/2018-current.xls', write_disk(tf <- tempfile(fileext = ".xls")))
+read_excel(tf, col_types = c("date", rep("text", 23)), skip = 5) %>%
+  slice(6:nrow(.)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  rename(date = Units) %>%
+  select(date, USD) %>%
+  rename(AUD_USD = USD) %>%
+  filter(!is.na(AUD_USD)) %>%
+  filter(date >= start_date) %>%
+  mutate(date = as.Date(date))  -> AUD_USD
+
+```
+
+# Plots for blog
+```{r}
+
+PMGOLD %>%
+  bind_rows(QAU) %>%
+  arrange(date) %>%
+  group_by(signal) %>%
+  mutate(cum_return = cumprod(1 + simple_return) - 1) %>%
+  select(date, cum_return, signal) %>%
+  bind_rows(AUD_USD %>%
+    mutate(cum_return = AUD_USD) %>%
+    select(date, cum_return) %>%
+    mutate(signal = "AUD_USD")) %>%
+  filter(!is.na(cum_return)) %>%
+  ggplot(aes(x = date, y = cum_return, colour = signal)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 weeks") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
+  theme(axis.text.x=element_text(angle=60, hjust=1),
+        legend.title=element_blank()) +
+  labs(y = "", x = "")
+
+
+PMGOLD %>%
+  bind_rows(QAU) %>%
+  arrange(date) %>%
+  group_by(signal) %>%
+  mutate(cum_return = cumprod(1 + simple_return) - 1) %>%
+  select(date, cum_return, signal) %>%
+  bind_rows(AUD_USD %>%
+    mutate(cum_return = AUD_USD) %>%
+    select(date, cum_return) %>%
+    mutate(signal = "AUD_USD")) %>%
+  filter(date < "2020-03-22") %>%
+  filter(!is.na(cum_return)) %>%
+  ggplot(aes(x = date, y = cum_return, colour = signal)) +
+  geom_line() +
+  scale_x_date(date_breaks = "2 days") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
+  theme(axis.text.x=element_text(angle=60, hjust=1),
+        legend.title=element_blank()) +
+  labs(y = "", x = "")
+
+
+PMGOLD %>%
+  bind_rows(QAU) %>%
+  filter(date >= "2020-03-23") %>%
+  mutate(simple_return = ifelse(date == "2020-03-23", 0, simple_return)) %>%
+  arrange(date) %>%
+  group_by(signal) %>%
+  mutate(cum_return = cumprod(1 + simple_return) - 1) %>%
+  select(date, cum_return, signal) %>%
+  bind_rows(AUD_USD %>%
+    mutate(cum_return = AUD_USD) %>%
+    filter(date >= "2020-03-23") %>%
+    select(date, cum_return) %>%
+    mutate(signal = "AUD_USD")) %>%
+  filter(!is.na(cum_return)) %>%
+  ggplot(aes(x = date, y = cum_return, colour = signal)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 week") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
+  theme(axis.text.x=element_text(angle=60, hjust=1),
+        legend.title=element_blank()) +
+  labs(y = "", x = "")
+
+
+PMGOLD %>%
+  bind_rows(QAU) %>%
+  pivot_wider(id_cols = date, names_from = signal, values_from = simple_return) %>%
+  mutate(simple_return = (QAU.AX + PMGOLD.AX)/2) %>%
+  select(date, simple_return) %>%
+  filter(!is.na(simple_return)) %>%
+  mutate(signal = "half QAU\nhalf PMGOLD") -> half_half
+
+
+PMGOLD %>%
+  bind_rows(QAU) %>%
+  bind_rows(half_half) %>%
+  #filter(signal != "GOLD.AX") %>%
+  arrange(date) %>%
+  group_by(signal) %>%
+  mutate(cum_return = cumprod(1 + simple_return) - 1) %>%
+  select(date, cum_return, signal) %>%
+  bind_rows(AUD_USD %>%
+    mutate(cum_return = AUD_USD) %>%
+    select(date, cum_return) %>%
+    mutate(signal = "AUD_USD")) %>%
+  filter(!is.na(cum_return)) %>%
+  ggplot(aes(x = date, y = cum_return, colour = signal)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 weeks") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1,  scale = 100), n.breaks = 20) +
+  theme(axis.text.x=element_text(angle=60, hjust=1),
+        legend.title=element_blank()) +
+  labs(y = "", x = "")
+  
+```
